@@ -2,16 +2,22 @@
   "type": "object",
   "title": "extractor configuration",
   "required": [
-    "print_hello"
+    "#api_token",
+    "newest_files"
   ],
   "properties": {
-    "print_hello": {
-      "type": "boolean",
-      "title": "Print Hello"
+    "#api_token": {
+      "type": "string",
+      "format": "password",
+      "title": "Storage Token",
+      "propertyOrder": 10
     },
-    "debug": {
+    "newest_files": {
       "type": "boolean",
-      "title": "Debug"
+      "title": "Only newest files",
+      "format": "checkbox",
+      "description": "Process only newest version of each file (by name).",
+      "propertyOrder": 20
     }
   }
 }

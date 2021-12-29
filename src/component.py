@@ -10,7 +10,7 @@ from typing import List, Tuple
 from kbcstorage.dataclasses.tables import Column, ColumnDefinition
 from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
-from keboola.component.dao import FileDefinition
+from keboola.component.dao import FileDefinition, TableMetadata
 from keboola.component.exceptions import UserException
 # configuration variables
 from requests import HTTPError
@@ -69,6 +69,12 @@ class Component(ComponentBase):
         for f in input_definitions:
             self._create_sapi_table_definition(f)
 
+    def _build_column_descriptions_metadata(self, sapi_definition: SapiTableDefinition):
+        metadata = {}
+        for c in sapi_definition.columns:
+            metadata[c.name] = c.comment
+        return metadata
+
     def _create_sapi_table_definition(self, definition_file: FileDefinition):
         with open(definition_file.full_path, 'r') as inp:
             sapi_definition_dict = json.load(inp)
@@ -102,6 +108,23 @@ class Component(ComponentBase):
                 else:
                     raise UserException(f"Failed to create the table. Status: {e.response.status_code} "
                                         f"Errors: {msg}") from e
+
+            logging.info("Updating metadata")
+            tm = TableMetadata()
+            tm.add_table_description(sapi_definition.comment)
+            tm.add_table_metadata('shortname', sapi_definition.shortname)
+            tm.add_table_metadata('stereotype', sapi_definition.stereotype)
+            tm.add_column_descriptions(self._build_column_descriptions_metadata(sapi_definition))
+
+            output_table = self.create_out_table_definition(sapi_definition.name,
+                                                            destination=sapi_definition.destination_id,
+                                                            columns=[c.name for c in sapi_definition.columns],
+                                                            primary_key=pkey,
+                                                            incremental=True,
+                                                            table_metadata=tm)
+            self.write_manifest(output_table)
+            with open(output_table.full_path, 'w'):
+                pass
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]

@@ -1,5 +1,7 @@
-keboola.component==1.3.5
+keboola.component==1.3.6
 keboola.utils
-keboola.http-client
 mock
 freezegun
+# change after release
+git+https://github.com/davidesner/sapi-python-client.git#egg=kbcstorage
+dataconf

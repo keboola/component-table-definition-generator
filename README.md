@@ -1,46 +1,117 @@
 Table Definition Generator
 =============
 
-Description
+Generates table definition based on input JSON file.
 
 **Table of contents:**
 
 [TOC]
 
-Functionality notes
+Input Format
 ===================
+
+Accepts JSON files with table definition defined as below:
+
+**Example**
+
+```json
+{
+  "test_table": {
+    "name": "test_table_def",
+    "comment": "Comment Will be used in Storage table metadata",
+    "stereotype": "Stereotype May be included in table metadata if needed.",
+    "shortname": "shortname May be included in table metadata if needed.",
+    "destination_id": "in.c-de-test.test_table_def",
+    "distribution": {
+      "type": "HASH",
+      "distributionColumnsNames": [
+        "id"
+      ]
+    },
+    "index": {
+      "type": "CLUSTERED INDEX",
+      "indexColumnsNames": [
+        "id"
+      ]
+    },
+    "columns": {
+      "id": {
+        "data_type": "INT",
+        "order": 1,
+        "comment": "Will be used in Storage table metadata",
+        "nullable": false,
+        "PK_Flag": true
+      },
+      "name": {
+        "data_type": "NVARCHAR(200)",
+        "order": 2,
+        "comment": "Will be used in Storage table metadata",
+        "nullable": true,
+        "default": "'unnamed'",
+        "PK_Flag": false
+      }
+    }
+  },
+  "test_table2": {
+    "name": "test_table_def2",
+    "comment": "Comment Will be used in Storage table metadata",
+    "stereotype": "Stereotype May be included in table metadata if needed.",
+    "shortname": "shortname May be included in table metadata if needed.",
+    "destination_id": "in.c-de-test.test_table_def2",
+    "distribution": {
+      "type": "HASH",
+      "distributionColumnsNames": [
+        "id"
+      ]
+    },
+    "index": {
+      "type": "CLUSTERED INDEX",
+      "indexColumnsNames": [
+        "id"
+      ]
+    },
+    "columns": {
+      "id": {
+        "data_type": "INT",
+        "order": 1,
+        "comment": "Will be used in Storage table metadata",
+        "nullable": false,
+        "PK_Flag": true
+      },
+      "name": {
+        "data_type": "NVARCHAR(200)",
+        "order": 2,
+        "comment": "Will be used in Storage table metadata",
+        "nullable": true,
+        "default": "'unnamed'",
+        "PK_Flag": false
+      }
+    }
+  }
+}
+``` 
 
 Prerequisites
 =============
 
-Get the API token, register application, etc.
-
-Features
-========
-
-| **Feature**             | **Note**                                      |
-|-------------------------|-----------------------------------------------|
-| Generic UI form         | Dynamic UI form                               |
-| Row Based configuration | Allows structuring the configuration in rows. |
-| oAuth                   | oAuth authentication enabled                  |
-| Incremental loading     | Allows fetching data in new increments.       |
-| Backfill mode           | Support for seamless backfill setup.          |
-| Date range filter       | Specify date range.                           |
-
-Supported endpoints
-===================
-
-If you need more endpoints, please submit your request to
-[ideas.keboola.com](https://ideas.keboola.com/)
+A KBC Project supporting Table Definitions feature.
 
 Configuration
 =============
 
-Param 1
--------
+- `Only newest files` - [OPTIONAL] Default `false`. Process only newest version of each file (by name).
 
-Param 2
--------
+
+### Example JSON configuration
+
+```json
+{"parameters": {
+    "#api_token": "1234-xxx",
+    "stack_url": "https://connection.eu-central-1.keboola.com/",
+    "debug": true
+  }
+}
+```
 
 Output
 ======

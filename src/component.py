@@ -5,16 +5,14 @@ Template Component main class.
 import json
 import logging
 from dataclasses import asdict
-from typing import List, Tuple
-
 from kbcstorage.dataclasses.tables import Column, ColumnDefinition
 from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
 from keboola.component.dao import FileDefinition
 from keboola.component.exceptions import UserException
-
 # configuration variables
 from requests import HTTPError
+from typing import List, Tuple
 
 from sapi_definition import load_definitions_from_dict, SapiTableDefinition
 
@@ -25,8 +23,8 @@ KEY_NEWEST_FILES_BY_NAME = 'newest_files'
 
 # list of mandatory parameters => if some is missing,
 # component will fail with readable message on initialization.
-REQUIRED_PARAMETERS = [KEY_API_TOKEN, KEY_STACK_URL]
-REQUIRED_IMAGE_PARS = []
+
+REQUIRED_PARAMETERS = [KEY_API_TOKEN]
 
 
 class Component(ComponentBase):
@@ -45,7 +43,8 @@ class Component(ComponentBase):
         self._client: Tables
 
     def _init_client(self):
-        stack_url = self.configuration.parameters[KEY_STACK_URL]
+        stack_url = self.configuration.parameters.get(KEY_STACK_URL) \
+                    or f'https://{self.environment_variables.stack_id}'
         token = self.configuration.parameters[KEY_API_TOKEN]
         self._client = Tables(root_url=stack_url, token=token)
 
@@ -90,8 +89,6 @@ class Component(ComponentBase):
             except HTTPError as e:
                 if e.response.status_code < 500:
                     raise UserException(f"Failed to create the table. Errors: {e.response.json()['errors']}") from e
-
-
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]

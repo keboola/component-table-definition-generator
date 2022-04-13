@@ -87,8 +87,12 @@ class Component(ComponentBase):
                                                         )
                 results.append(result)
             except HTTPError as e:
-                if e.response.status_code < 500:
-                    msg = e.response.json().get('errors') or e.response.text
+                msg = e.response.json().get('errors') or e.response.text
+                if e.response.status_code in [401, 403]:
+                    raise UserException(f"Failed to perform the requesst, please check your Storage Token."
+                                        f" Code: {e.response.status_code} "
+                                        f"Errors: {msg}") from e
+                else:
                     raise UserException(f"Failed to create the table. Status: {e.response.status_code} "
                                         f"Errors: {msg}") from e
 

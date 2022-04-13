@@ -2,20 +2,30 @@
 Template Component main class.
 
 '''
-import csv
+import json
 import logging
-from datetime import datetime
+from dataclasses import asdict
+from typing import List, Tuple
 
+from kbcstorage.dataclasses.tables import Column, ColumnDefinition
+from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
+from keboola.component.dao import FileDefinition
 from keboola.component.exceptions import UserException
 
 # configuration variables
+from requests import HTTPError
+
+from sapi_definition import load_definitions_from_dict, SapiTableDefinition
+
+KEY_STACK_URL = 'stack_url'
 KEY_API_TOKEN = '#api_token'
-KEY_PRINT_HELLO = 'print_hello'
+
+KEY_NEWEST_FILES_BY_NAME = 'newest_files'
 
 # list of mandatory parameters => if some is missing,
 # component will fail with readable message on initialization.
-REQUIRED_PARAMETERS = [KEY_PRINT_HELLO]
+REQUIRED_PARAMETERS = [KEY_API_TOKEN, KEY_STACK_URL]
 REQUIRED_IMAGE_PARS = []
 
 
@@ -32,45 +42,91 @@ class Component(ComponentBase):
 
     def __init__(self):
         super().__init__()
+        self._client: Tables
+
+    def _init_client(self):
+        stack_url = self.configuration.parameters[KEY_STACK_URL]
+        token = self.configuration.parameters[KEY_API_TOKEN]
+        self._client = Tables(root_url=stack_url, token=token)
 
     def run(self):
         '''
         Main execution code
         '''
 
-        # ####### EXAMPLE TO REMOVE
         # check for missing configuration parameters
         self.validate_configuration_parameters(REQUIRED_PARAMETERS)
-        self.validate_image_parameters(REQUIRED_IMAGE_PARS)
+        self._init_client()
         params = self.configuration.parameters
-        # Access parameters in data/config.json
-        if params.get(KEY_PRINT_HELLO):
-            logging.info("Hello World")
 
-        # get last state data/in/state.json from previous run
-        previous_state = self.get_state_file()
-        logging.info(previous_state.get('some_state_parameter'))
+        newest = params.get(KEY_NEWEST_FILES_BY_NAME, False)
+        input_definitions = self.get_input_files_definitions(only_latest_files=newest)
+        self._validate_file_format(input_definitions)
 
-        # Create output table (Tabledefinition - just metadata)
-        table = self.create_out_table_definition('output.csv', incremental=True, primary_key=['timestamp'])
+        for f in input_definitions:
+            self._create_sapi_table_definition(f)
 
-        # get file path of the table (data/out/tables/Features.csv)
-        out_table_path = table.full_path
-        logging.info(out_table_path)
+    def _create_sapi_table_definition(self, definition_file: FileDefinition):
+        with open(definition_file.full_path, 'r') as inp:
+            sapi_definition_dict = json.load(inp)
+        definition_configurations = load_definitions_from_dict(sapi_definition_dict)
 
-        # DO whatever and save into out_table_path
-        with open(table.full_path, mode='wt', encoding='utf-8', newline='') as out_file:
-            writer = csv.DictWriter(out_file, fieldnames=['timestamp'])
-            writer.writeheader()
-            writer.writerow({"timestamp": datetime.now().isoformat()})
+        results = []
+        for sapi_definition in definition_configurations:
+            bucket, name = self._get_table_destination(sapi_definition)
 
-        # Save table manifest (output.csv.manifest) from the tabledefinition
-        self.write_manifest(table)
+            pkey, columns = self._build_columns(sapi_definition)
 
-        # Write new state - will be available next run
-        self.write_state_file({"some_state_parameter": "value"})
+            logging.info(f'Creating table definition {sapi_definition.name}')
+            logging.debug(f'Creating table definition {asdict(sapi_definition)}')
 
-        # ####### EXAMPLE TO REMOVE END
+            try:
+                result = self._client.create_definition(bucket_id=bucket, name=name,
+                                                        primary_keys=pkey, columns=columns,
+                                                        distribution=asdict(sapi_definition.distribution),
+                                                        index=asdict(sapi_definition.index)
+                                                        )
+                results.append(result)
+            except HTTPError as e:
+                if e.response.status_code < 500:
+                    raise UserException(f"Failed to create the table. Errors: {e.response.json()['errors']}") from e
+
+
+
+    def _validate_file_format(self, input_definitions):
+        invalid = [f for f in input_definitions if not f.name.endswith('.json')]
+        if invalid:
+            raise UserException(f'Only JSON files are required on the input. '
+                                f'Some files have invalid format: {invalid}')
+
+    def _get_table_destination(self, sapi_definition: SapiTableDefinition):
+        name = sapi_definition.name
+        split_dest = sapi_definition.destination_id.split('.')
+        bucket = f'{split_dest[0]}.{split_dest[1]}'
+
+        return bucket, name
+
+    def _split_length_from_datatype(self, datatype: str):
+        length = None
+        typestr = datatype
+        if len(datatype.split('(')) == 2:
+            length = datatype.split('(')[1].replace(')', '')
+            typestr = datatype.split('(')[0]
+        return typestr, length
+
+    def _build_columns(self, sapi_definition: SapiTableDefinition) -> Tuple[List[str], List[Column]]:
+        pkey_columns = [c.name for c in sapi_definition.columns if c.PK_Flag]
+
+        columns = []
+        for c in sapi_definition.columns:
+            typestr, length = self._split_length_from_datatype(c.data_type)
+            column_def = Column(name=c.name,
+                                definition=ColumnDefinition(type=typestr,
+                                                            length=length,
+                                                            nullable=c.nullable,
+                                                            default=c.default))
+            columns.append(column_def)
+        return pkey_columns, columns
 
 
 """

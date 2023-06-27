@@ -1,1 +1,1 @@
-Table Definition Generator long description
+Create Keboola Storage Table Definitions from input JSON files containing the Table Definitions configuration

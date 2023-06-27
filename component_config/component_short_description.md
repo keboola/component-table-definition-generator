@@ -1,1 +1,1 @@
-Table Definition Generator short description
+Table definition is Keboola Storage API feature that allows definition of strictly typed tables.

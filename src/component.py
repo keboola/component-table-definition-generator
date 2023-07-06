@@ -47,6 +47,9 @@ class Component(ComponentBase):
         stack_url = self.configuration.parameters.get(KEY_STACK_URL) \
                     or f'https://{self.environment_variables.stack_id}'
         token = self.configuration.parameters[KEY_API_TOKEN]
+        if not token:
+            raise UserException(
+                "The Storage token is not filled in. Please enter a valid Storage Token to the configuration.")
         self._client = Tables(root_url=stack_url, token=token)
 
     def run(self):

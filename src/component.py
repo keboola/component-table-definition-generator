@@ -5,6 +5,8 @@ Template Component main class.
 import json
 import logging
 from dataclasses import asdict
+from typing import List, Tuple
+
 from kbcstorage.dataclasses.tables import Column, ColumnDefinition
 from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
@@ -12,7 +14,6 @@ from keboola.component.dao import FileDefinition
 from keboola.component.exceptions import UserException
 # configuration variables
 from requests import HTTPError
-from typing import List, Tuple
 
 from sapi_definition import load_definitions_from_dict, SapiTableDefinition
 
@@ -46,6 +47,9 @@ class Component(ComponentBase):
         stack_url = self.configuration.parameters.get(KEY_STACK_URL) \
                     or f'https://{self.environment_variables.stack_id}'
         token = self.configuration.parameters[KEY_API_TOKEN]
+        if not token:
+            raise UserException(
+                "The Storage token is not filled in. Please enter a valid Storage Token to the configuration.")
         self._client = Tables(root_url=stack_url, token=token)
 
     def run(self):
@@ -80,10 +84,13 @@ class Component(ComponentBase):
             logging.debug(f'Creating table definition {asdict(sapi_definition)}')
 
             try:
+                distribution_dict = asdict(sapi_definition.distribution) if sapi_definition.distribution else None
+                index_dict = asdict(sapi_definition.index) if sapi_definition.index else None
+
                 result = self._client.create_definition(bucket_id=bucket, name=name,
                                                         primary_keys=pkey, columns=columns,
-                                                        distribution=asdict(sapi_definition.distribution),
-                                                        index=asdict(sapi_definition.index)
+                                                        distribution=distribution_dict,
+                                                        index=index_dict
                                                         )
                 results.append(result)
             except HTTPError as e:

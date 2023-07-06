@@ -34,8 +34,8 @@ class SapiTableDefinition:
     name: str
     destination_id: str
     columns: List[Column]
-    distribution: Distribution
-    index: Index
+    distribution: Distribution = None
+    index: Index = None
     comment: str = None
     stereotype: str = None
     shortname: str = None
@@ -59,8 +59,14 @@ def _build_columns_from_dict(cfg: dict):
 
 def _build_tablecfg_from_dict(external_id: str, cfg: dict):
     columns = _build_columns_from_dict(cfg['columns'])
-    distribution = _dataclass_from_dict(cfg['distribution'], Distribution)
-    index = _dataclass_from_dict(cfg['index'], Index)
+    distribution = None
+    if cfg.get('distribution'):
+        # Synapse only
+        distribution = _dataclass_from_dict(cfg['distribution'], Distribution)
+    index = None
+    if cfg.get('index'):
+        # Synapse Onle
+        index = _dataclass_from_dict(cfg['index'], Index)
     table = SapiTableDefinition(external_id=external_id,
                                 name=cfg['name'],
                                 destination_id=cfg['destination_id'],

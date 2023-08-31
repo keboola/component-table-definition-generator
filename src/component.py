@@ -112,19 +112,13 @@ class Component(ComponentBase):
             logging.info("Updating metadata")
             tm = TableMetadata()
             tm.add_table_description(sapi_definition.comment)
-            tm.add_table_metadata('shortname', sapi_definition.shortname)
-            tm.add_table_metadata('stereotype', sapi_definition.stereotype)
+            if sapi_definition.shortname:
+                tm.add_table_metadata('shortname', sapi_definition.shortname)
+            if sapi_definition.stereotype:
+                tm.add_table_metadata('stereotype', sapi_definition.stereotype)
             tm.add_column_descriptions(self._build_column_descriptions_metadata(sapi_definition))
 
-            output_table = self.create_out_table_definition(sapi_definition.name,
-                                                            destination=sapi_definition.destination_id,
-                                                            columns=[c.name for c in sapi_definition.columns],
-                                                            primary_key=pkey,
-                                                            incremental=True,
-                                                            table_metadata=tm)
-            self.write_manifest(output_table)
-            with open(output_table.full_path, 'w'):
-                pass
+            self.update_table_metadata(sapi_definition.destination_id, tm)
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]
@@ -160,6 +154,14 @@ class Component(ComponentBase):
                                                             default=c.default))
             columns.append(column_def)
         return pkey_columns, columns
+
+    def update_table_metadata(self, table_id: str, metadata: TableMetadata):
+        url = f'{self._client.base_url}/{table_id}/metadata'
+        body = dict()
+        body['metadata'] = metadata.get_table_metadata_for_manifest()
+        body['columnsMetadata'] = metadata.get_column_metadata_for_manifest()
+        body['provider'] = 'kds-team.app-table-definition-generator'
+        self._client._post(url=url, json=body)  # noqa
 
 
 """

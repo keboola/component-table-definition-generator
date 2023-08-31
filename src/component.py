@@ -10,7 +10,7 @@ from typing import List, Tuple
 from kbcstorage.dataclasses.tables import Column, ColumnDefinition
 from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
-from keboola.component.dao import FileDefinition
+from keboola.component.dao import FileDefinition, TableMetadata
 from keboola.component.exceptions import UserException
 # configuration variables
 from requests import HTTPError
@@ -69,6 +69,12 @@ class Component(ComponentBase):
         for f in input_definitions:
             self._create_sapi_table_definition(f)
 
+    def _build_column_descriptions_metadata(self, sapi_definition: SapiTableDefinition):
+        metadata = {}
+        for c in sapi_definition.columns:
+            metadata[c.name] = c.comment
+        return metadata
+
     def _create_sapi_table_definition(self, definition_file: FileDefinition):
         with open(definition_file.full_path, 'r') as inp:
             sapi_definition_dict = json.load(inp)
@@ -102,6 +108,17 @@ class Component(ComponentBase):
                 else:
                     raise UserException(f"Failed to create the table. Status: {e.response.status_code} "
                                         f"Errors: {msg}") from e
+
+            logging.info("Updating metadata")
+            tm = TableMetadata()
+            tm.add_table_description(sapi_definition.comment)
+            if sapi_definition.shortname:
+                tm.add_table_metadata('shortname', sapi_definition.shortname)
+            if sapi_definition.stereotype:
+                tm.add_table_metadata('stereotype', sapi_definition.stereotype)
+            tm.add_column_descriptions(self._build_column_descriptions_metadata(sapi_definition))
+
+            self.update_table_metadata(sapi_definition.destination_id, tm)
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]
@@ -137,6 +154,14 @@ class Component(ComponentBase):
                                                             default=c.default))
             columns.append(column_def)
         return pkey_columns, columns
+
+    def update_table_metadata(self, table_id: str, metadata: TableMetadata):
+        url = f'{self._client.base_url}/{table_id}/metadata'
+        body = dict()
+        body['metadata'] = metadata.get_table_metadata_for_manifest()
+        body['columnsMetadata'] = metadata.get_column_metadata_for_manifest()
+        body['provider'] = 'kds-team.app-table-definition-generator'
+        self._client._post(url=url, json=body)  # noqa
 
 
 """

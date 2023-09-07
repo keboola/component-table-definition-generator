@@ -7,6 +7,7 @@ import logging
 from dataclasses import asdict
 from typing import List, Tuple
 
+from kbcstorage.buckets import Buckets
 from kbcstorage.dataclasses.tables import Column, ColumnDefinition
 from kbcstorage.tables import Tables
 from keboola.component.base import ComponentBase
@@ -41,7 +42,7 @@ class Component(ComponentBase):
 
     def __init__(self):
         super().__init__()
-        self._client: Tables
+        self._tables_client: Tables
 
     def _init_client(self):
         stack_url = self.configuration.parameters.get(KEY_STACK_URL) \
@@ -50,7 +51,8 @@ class Component(ComponentBase):
         if not token:
             raise UserException(
                 "The Storage token is not filled in. Please enter a valid Storage Token to the configuration.")
-        self._client = Tables(root_url=stack_url, token=token)
+        self._tables_client = Tables(root_url=stack_url, token=token)
+        self._buckets_client = Buckets(root_url=stack_url, token=token)
 
     def run(self):
         '''
@@ -93,11 +95,23 @@ class Component(ComponentBase):
                 distribution_dict = asdict(sapi_definition.distribution) if sapi_definition.distribution else None
                 index_dict = asdict(sapi_definition.index) if sapi_definition.index else None
 
-                result = self._client.create_definition(bucket_id=bucket, name=name,
-                                                        primary_keys=pkey, columns=columns,
-                                                        distribution=distribution_dict,
-                                                        index=index_dict
-                                                        )
+                bucket_parts = bucket.split('.')
+                if bucket_parts[1].startswith('c-'):
+                    bucket_parts[1] = bucket_parts[1][2:]
+                try:
+                    self._buckets_client.create(name=bucket_parts[1], stage=bucket_parts[0])
+                except HTTPError as e:
+                    if e.response.json().get('code') == 'storage.buckets.alreadyExists':
+                        logging.debug("Bucket already exists")
+                        pass
+                    else:
+                        raise e
+
+                result = self._tables_client.create_definition(bucket_id=bucket, name=name,
+                                                               primary_keys=pkey, columns=columns,
+                                                               distribution=distribution_dict,
+                                                               index=index_dict
+                                                               )
                 results.append(result)
             except HTTPError as e:
                 msg = e.response.json().get('errors') or e.response.text
@@ -117,8 +131,8 @@ class Component(ComponentBase):
             if sapi_definition.stereotype:
                 tm.add_table_metadata('stereotype', sapi_definition.stereotype)
             tm.add_column_descriptions(self._build_column_descriptions_metadata(sapi_definition))
-
-            self.update_table_metadata(sapi_definition.destination_id, tm)
+            table_id = f'{bucket}.{name}'
+            self.update_table_metadata(table_id, tm)
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]
@@ -130,6 +144,8 @@ class Component(ComponentBase):
         name = sapi_definition.name
         split_dest = sapi_definition.destination_id.split('.')
         bucket = f'{split_dest[0]}.{split_dest[1]}'
+        if len(split_dest) == 3:
+            name = split_dest[2]
 
         return bucket, name
 
@@ -156,12 +172,12 @@ class Component(ComponentBase):
         return pkey_columns, columns
 
     def update_table_metadata(self, table_id: str, metadata: TableMetadata):
-        url = f'{self._client.base_url}/{table_id}/metadata'
+        url = f'{self._tables_client.base_url}/{table_id}/metadata'
         body = dict()
         body['metadata'] = metadata.get_table_metadata_for_manifest()
         body['columnsMetadata'] = metadata.get_column_metadata_for_manifest()
         body['provider'] = 'kds-team.app-table-definition-generator'
-        self._client._post(url=url, json=body)  # noqa
+        self._tables_client._post(url=url, json=body)  # noqa
 
 
 """

@@ -21,7 +21,7 @@ Accepts JSON files with table definition defined as below:
     "comment": "Comment Will be used in Storage table metadata",
     "stereotype": "Stereotype May be included in table metadata if needed.",
     "shortname": "shortname May be included in table metadata if needed.",
-    "destination_id": "in.c-de-test.test_table_def",
+    "destination_id": "in.c-de-test",
     "distribution": {
       "type": "HASH",
       "distributionColumnsNames": [

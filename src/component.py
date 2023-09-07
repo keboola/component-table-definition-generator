@@ -131,8 +131,8 @@ class Component(ComponentBase):
             if sapi_definition.stereotype:
                 tm.add_table_metadata('stereotype', sapi_definition.stereotype)
             tm.add_column_descriptions(self._build_column_descriptions_metadata(sapi_definition))
-
-            self.update_table_metadata(sapi_definition.destination_id, tm)
+            table_id = f'{bucket}.{name}'
+            self.update_table_metadata(table_id, tm)
 
     def _validate_file_format(self, input_definitions):
         invalid = [f for f in input_definitions if not f.name.endswith('.json')]
@@ -144,6 +144,8 @@ class Component(ComponentBase):
         name = sapi_definition.name
         split_dest = sapi_definition.destination_id.split('.')
         bucket = f'{split_dest[0]}.{split_dest[1]}'
+        if len(split_dest) == 3:
+            name = split_dest[2]
 
         return bucket, name
 

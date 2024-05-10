@@ -78,9 +78,8 @@ class Component(ComponentBase):
         return metadata
 
     def _create_sapi_table_definition(self, definition_file: FileDefinition):
-        with open(definition_file.full_path, 'r', encoding='utf-8') as inp:
+        with open(definition_file.full_path, 'r') as inp:
             sapi_definition_dict = json.load(inp)
-
         definition_configurations = load_definitions_from_dict(sapi_definition_dict)
 
         results = []

@@ -48,11 +48,9 @@ def _dataclass_from_dict(configuration: dict, clazz):
 
 def _build_columns_from_dict(cfg: dict):
     columns = []
-    print(f"cfg: {cfg}")
     for k in cfg:
         default = cfg[k].pop('default', None)
         column = _dataclass_from_dict(cfg[k], Column)
-        print(f"column: {column}")
         column.name = k
         column.default = default
         columns.append(column)

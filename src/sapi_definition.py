@@ -42,7 +42,7 @@ class SapiTableDefinition:
 
 
 def _dataclass_from_dict(configuration: dict, clazz):
-    json_conf = json.dumps(configuration)
+    json_conf = json.dumps(configuration, ensure_ascii=False)
     return dataconf.loads(json_conf, clazz)
 
 
